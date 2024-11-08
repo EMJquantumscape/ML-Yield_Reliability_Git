@@ -39,6 +39,7 @@ qs_client = Client()
 # This is the experiment code we want to look at. Default:
 #search = "APD256|MLB|MLD|QSC"
 search = "MLB|MLD"
+#search = "MLD"
 exclude = "None"
 
 
@@ -1158,7 +1159,7 @@ track_cycle_dvdt_cutoff = -1.5E-5
 sample_prefixes = sample_regix.split("|")
 
 test_type = "E31"
-recipe_ids = [15223, 15224, 15263, 15416, 15410, 15287, 15445, 15411, 15529, 15551, 15707 ]
+recipe_ids = [15223, 15224, 15263, 15416, 15410, 15287, 15445, 15411, 15529, 15551, 15707, 15756 ]
 
 ## Fetch Data
 # get meta data about runs for a specific sample prefix and test type
@@ -1347,7 +1348,7 @@ df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted_any'] == False), 'F
 
 #label builds that failed via shorting
 df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted_any'] == True), 'Fail_Event' ]=True
-df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted_any'] == True), 'Failure_Type' ]='Short'
+df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted_any'] == True), 'Failure_Type' ]='Short Failure'
 
 # label builds that failed via Vmin 
 df_rel_master_voltage.loc[((df_rel_master_voltage[Vmin_cut]==True)) , "Fail_Event"]=True
@@ -1553,12 +1554,17 @@ df_screening = df_screening.rename(columns={'Fail_Event': 'Reliability Result'})
 df_screening = df_screening.rename(columns={'EventCycle': 'Total Reliability Cycles'})
 df_screening = df_screening.rename(columns={"run_end_time": "Last Reliability Cycle"})
 df_screening['Last Reliability Cycle'] = df_screening['Last Reliability Cycle'].str[:10]
-df_screening = df_screening[['samplename','cell_tier_group', 'cell_build_date', 'Tool', 'Channel', 'ML Screen', 'Reliability Result', 'Total Reliability Cycles','Last Reliability Cycle', 'recipe_name']]
 
 # Step 3: Update "Reliability Result" based on conditions
 today = datetime.today().date()
 df_screening['Last Reliability Cycle'] = pd.to_datetime(df_screening['Last Reliability Cycle'], errors='coerce')
-
+#Input Failiure mode to  `Reliability Result`
+df_screening['Reliability Result'] = np.where(
+    df_screening['Reliability Result'] == 'Failed', 
+    df_screening['Failure_Type'], 
+    df_screening['Reliability Result']
+)
+#Update status if it has not failed
 df_screening['Reliability Result'] = np.where(
     (df_screening['Reliability Result'] == 'Pass') & 
     ((df_screening['Last Reliability Cycle'].dt.date == today) | df_screening['Last Reliability Cycle'].isna()),
@@ -1570,6 +1576,9 @@ df_screening['Reliability Result'] = np.where(
         df_screening['Reliability Result']
     )
 )
+#clean up and remove columns from dataframe
+df_screening = df_screening[['samplename','cell_tier_group', 'cell_build_date', 'Tool', 'Channel', 'ML Screen', 'Reliability Result', 'Total Reliability Cycles','Last Reliability Cycle', 'recipe_name']]
+
 
 
 # Step 4: Update Maccor and Channel if cell is in reliability testing
@@ -1589,6 +1598,6 @@ df_screening = df_updated.sort_values(by=['cell_build_date', 'samplename'], asce
 # Step 6: Display the updated dataframe
 df_screening.to_clipboard(index=False)
 
-df_screening['Current Status']='0'
+#df_screening['Current Status']='0'
 
 # %%
