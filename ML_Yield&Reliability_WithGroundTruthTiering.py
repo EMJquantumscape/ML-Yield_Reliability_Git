@@ -38,10 +38,15 @@ qs_client = Client()
 
 # This is the experiment code we want to look at. Default:
 #search = "APD256|MLB|MLD|QSC"
-search = "MLB|MLD"
-#search = "MLD"
+search = "MLB003|MLD007|MLB000"   #search for these cells, can be generic or specific
+#search = "APD253"
+search = "MLD"
 exclude = "None"
+builtby = "7/01/2024" #search for cells built on or after this date
 
+
+# Convert builtby to datetime
+builtby_date = pd.to_datetime(builtby, format="%m/%d/%Y")
 
 # Yield criteria
 
@@ -181,6 +186,7 @@ df_raw["StoppedOnShort"] = (
 
 
 # %%
+#Query Cycle Metrics
 # ===========================================================================================
 # ======================        CYCLE METRICS CALCULATION          ==========================
 # ===========================================================================================
@@ -511,6 +517,9 @@ df_master["cell flow + date"] = (
 
 df_master["cell_tier_group"] = "Spec Fail"
 
+# Filter the DataFrame to keep only rows where cell_build_date is on or after builtby_date
+df_master = df_master[df_master['cell_build_date'] >= builtby_date]
+
 #%%
 #### Ground Truth Tiering of each cell in the ML pouches
 
@@ -647,6 +656,7 @@ df_master = df_master.drop(columns=['Multilayer', 'ML Tier'])
 
 # Group by
 grouping = "process"
+#grouping = "experiment"
 
 # grouping = "cell_tier_group"
 
@@ -879,7 +889,7 @@ fig.update_layout(
 fig.show(renderer="browser")
 
 # %%
-
+# Plot Cell Metrics
 # =============================================================================
 # ========================        CELL METRICS          =======================
 # =============================================================================
@@ -1154,6 +1164,7 @@ def merge_on_common_cols(df1: pd.DataFrame, df2: pd.DataFrame):
 # set up input variables
 sample_regix = search
 track_cycle_dvdt_cutoff = -1.5E-5
+chargecap_cutoff = 0.86
 
 # split sample regex into list
 sample_prefixes = sample_regix.split("|")
@@ -1184,7 +1195,13 @@ cycle_metrics_df = qs_client.get_et_cycle_metrics(run_ids=run_ids, test_type=tes
 cycle_metrics_df.dropna(subset=["voltage_post_ceiling_rest_end_linear_dvdt", "min_track_cycle_power", "voltage_end_floor_rest", "min_track_cycle_voltage"], inplace=True)
 
 # add column to flag shorted cycles
-cycle_metrics_df.loc[:, "is_shorted"] = cycle_metrics_df["voltage_post_ceiling_rest_end_linear_dvdt"].apply(lambda dvdt: dvdt < track_cycle_dvdt_cutoff)
+#cycle_metrics_df.loc[:, "is_shorted"] = cycle_metrics_df["voltage_post_ceiling_rest_end_linear_dvdt"].apply(lambda dvdt: dvdt < track_cycle_dvdt_cutoff)
+#cycle_metrics_df.loc[:, "is_shorted"] = cycle_metrics_df["capacity_charge_fraction"].apply(lambda dvdt: chargecap < chargecap_cutoff)  #change
+#change
+cycle_metrics_df.loc[:, "is_shorted"] = (
+    (cycle_metrics_df["voltage_post_ceiling_rest_end_linear_dvdt"] < track_cycle_dvdt_cutoff) |
+    (cycle_metrics_df["capacity_charge_fraction"] > chargecap_cutoff)
+)
 cycle_metrics_df.loc[:, "V_fail_2.45V"] = cycle_metrics_df["min_track_cycle_voltage"].apply(lambda vmin: vmin < 2.45)
 
 # add column to calculate max overpotential
@@ -1340,15 +1357,15 @@ df_rel_master_voltage = df_rel_master_voltage.merge(
 
 df_rel_master_voltage['Fail_Event'] = False
 
-df_rel_master_voltage["ShortEvent"] = df_rel_master_voltage['is_shorted_any']
+df_rel_master_voltage["ShortEvent"] = df_rel_master_voltage['is_shorted']     #change to "is_shorted_any"
 df_rel_master_voltage['EventCycle'] = df_rel_master_voltage['track_cycle_count_cumulative']
 
 #label builds that survived
-df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted_any'] == False), 'Failure_Type' ]='Survived'
+df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted'] == False), 'Failure_Type' ]='Survived'#change to "is_shorted_any"
 
 #label builds that failed via shorting
-df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted_any'] == True), 'Fail_Event' ]=True
-df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted_any'] == True), 'Failure_Type' ]='Short Failure'
+df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted'] == True), 'Fail_Event' ]=True#change to "is_shorted_any"
+df_rel_master_voltage.loc[(df_rel_master_voltage['is_shorted'] == True), 'Failure_Type' ]='Short Failure'#change to "is_shorted_any"
 
 # label builds that failed via Vmin 
 df_rel_master_voltage.loc[((df_rel_master_voltage[Vmin_cut]==True)) , "Fail_Event"]=True
@@ -1356,7 +1373,7 @@ df_rel_master_voltage.loc[((df_rel_master_voltage[Vmin_cut]==True) & (df_rel_mas
 df_rel_master_voltage.loc[df_rel_master_voltage[Vmin_cut]==True, 'EventCycle'] = df_rel_master_voltage['V_Fail_Cycle']
 
 
-df_rel_master_voltage_summary=df_rel_master_voltage[['samplename', 'EventCycle', 'Fail_Event', 'Failure_Type','run_end_time', 'recipe_id', 'recipe_name', 'tool_name', 'channel', 'charge_capacity_cumulative', grouping]].copy()
+df_rel_master_voltage_summary=df_rel_master_voltage[['samplename', 'EventCycle', 'Fail_Event', 'Failure_Type','run_end_time', 'recipe_id', 'recipe_name', 'tool_name', 'channel', 'capacity_charge_fraction', grouping]].copy()
 # df_rel_master_voltage_summary.loc[df_rel_master_voltage_summary.samplename.str.contains('APD256AA'), ['Fail_Event', 'Failure_Type']]=[False,'Survived']
 df_rel_master_voltage_summary = df_rel_master_voltage_summary.drop_duplicates(['samplename'], keep = 'last')
 
@@ -1478,7 +1495,7 @@ fig.update_layout(
     font=dict(size=20),
     legend={"traceorder": "normal"},
     legend_title_text=grouping,
-    # autosize=False,
+    # autosize=False,S
     width=1050,
     height=600,
     # hide the legend
@@ -1576,12 +1593,33 @@ df_screening['Reliability Result'] = np.where(
         df_screening['Reliability Result']
     )
 )
-#clean up and remove columns from dataframe
-df_screening = df_screening[['samplename','cell_tier_group', 'cell_build_date', 'Tool', 'Channel', 'ML Screen', 'Reliability Result', 'Total Reliability Cycles','Last Reliability Cycle', 'recipe_name']]
+
+
+#Step 4: Add Disposition
+# Define the conditions for the "Disposition" column
+conditions = [
+    (df_screening['Reliability Result'] == 'In-Progress'),
+    (df_screening['Reliability Result'] == 'Stopped/Finished'),
+    (df_screening['Reliability Result'].isin(['Vmin Failure', 'Short Failure'])),
+    (df_screening['C/3 Count'] == 0) & (df_screening['ML Screen'] == 'Pass')
+]
+# Define the corresponding values for each condition
+choices = [
+    'Still Cycling',
+    'Finished Cycling',
+    'Failed Cycling',
+    'Still Screening'
+]
+# Apply the conditions to create the "Disposition" column
+df_screening['Disposition'] = np.select(conditions, choices, default='Finished Screening')
+# Insert "Disposition" as the second column
+cols = df_screening.columns.tolist()  # Get the current column order
+cols.insert(1, cols.pop(cols.index('Disposition')))  # Move "Disposition" to the second position
+df_screening = df_screening[cols]  # Reorder columns
 
 
 
-# Step 4: Update Maccor and Channel if cell is in reliability testing
+# Step 5: Update Maccor and Channel if cell is in reliability testing
 df_updated = df_screening.merge(
     df_rel_master_voltage_summary[['samplename', 'tool_name', 'channel']],
     on='samplename',
@@ -1592,12 +1630,16 @@ df_updated['Tool'] = df_updated['tool_name'].combine_first(df_updated['Tool'])
 df_updated['Channel'] = df_updated['channel'].combine_first(df_updated['Channel'])
 df_updated = df_updated.drop(columns=['tool_name', 'channel'])
 
-# Step 5: Sort by 'cell_build_date' first, and then by 'samplename'
+
+# Step 6: Sort by 'cell_build_date' first, and then by 'samplename'
 df_screening = df_updated.sort_values(by=['cell_build_date', 'samplename'], ascending=[True, True])
+#clean up and remove columns from dataframe
+df_screening = df_screening[['samplename','Disposition', 'cell_tier_group', 'cell_build_date', 'Tool', 'Channel', 'ML Screen', 'Reliability Result', 'Total Reliability Cycles','Last Reliability Cycle', 'recipe_name']]
 
-# Step 6: Display the updated dataframe
+
+# Step 7: Display the updated dataframe
 df_screening.to_clipboard(index=False)
-
 #df_screening['Current Status']='0'
+
 
 # %%
