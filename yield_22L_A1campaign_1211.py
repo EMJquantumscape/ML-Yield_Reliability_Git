@@ -23,12 +23,12 @@ clrs = plotly.colors.DEFAULT_PLOTLY_COLORS
 
 from qsdc.client import Client
 import met_client as app
-import anode_metrics_hifiscds as am
-import genealogy
+# import anode_metrics_hifiscds as am
+import genealogy_v2 as genealogy
 import mass
 
 # import unit_cell_electrical_yield_and_metrics as uceym
-import unit_cell_electrical_yield_and_metrics_with_rel as uceym_rel
+# import unit_cell_electrical_yield_and_metrics_with_rel as uceym_rel
 
 # create the quantumscape data client
 qs_client = Client()
@@ -1139,67 +1139,67 @@ df_genealogy22L = df_genealogy22L.merge(df_summary_metrics, on="US_id", how="lef
 
 
 # %%
-df_master2 = pd.merge(df_master, df_genealogy22L, left_on="samplename", right_on="6L_cell_id", how="left")
+# df_master2 = pd.merge(df_master, df_genealogy22L, left_on="samplename", right_on="6L_cell_id", how="left")
 
-# %%
+# # %%
 
-data = df_master2[df_master2.cell_tier_group.str.contains('Tier 1a|Tier 1b')]
+# data = df_master2[df_master2.cell_tier_group.str.contains('Tier 1a|Tier 1b')]
 
 
-data.loc[data["samplename"].str.contains('APD229BC-PS00-02'), "1C Count"] = 1
+# data.loc[data["samplename"].str.contains('APD229BC-PS00-02'), "1C Count"] = 1
 
-data = data[data["1C Count"] == 1]
-data = data[data["cell_tier_group"].str.contains('Tier 1a|Tier 1b')]
-data = data[~data.samplename.str.contains('APD229BH|QSC020AF-PS00-01')]
+# data = data[data["1C Count"] == 1]
+# data = data[data["cell_tier_group"].str.contains('Tier 1a|Tier 1b')]
+# data = data[~data.samplename.str.contains('APD229BH|QSC020AF-PS00-01')]
 
-data=data.sort_values('process')
+# data=data.sort_values('process')
 
-# Assuming 'data' is your DataFrame
-# Step 1: Create a unique DataFrame for the markers
-unique_asr = data.drop_duplicates(subset=['samplename'])[['samplename', 'MedDischargeASR_1C']]
+# # Assuming 'data' is your DataFrame
+# # Step 1: Create a unique DataFrame for the markers
+# unique_asr = data.drop_duplicates(subset=['samplename'])[['samplename', 'MedDischargeASR_1C']]
 
-# Step 2: Create the boxplot
-fig = go.Figure()
+# # Step 2: Create the boxplot
+# fig = go.Figure()
 
-fig.add_trace(
-    go.Box(
-        y=data['MedDischargeASR_1C_2L'],
-        x=data['samplename'],
-        name='2L ASR',
-        boxpoints='all',  # Show all points
-        jitter=0.5,  # Spread out points for better visibility
-        pointpos=0,  # Center points under the box
-        marker_color='blue'  # Color for individual points
-    )
-)
+# fig.add_trace(
+#     go.Box(
+#         y=data['MedDischargeASR_1C_2L'],
+#         x=data['samplename'],
+#         name='2L ASR',
+#         boxpoints='all',  # Show all points
+#         jitter=0.5,  # Spread out points for better visibility
+#         pointpos=0,  # Center points under the box
+#         marker_color='blue'  # Color for individual points
+#     )
+# )
 
-# Step 3: Overlay the markers
-fig.add_trace(
-    go.Scatter(
-        x=unique_asr['samplename'],
-        y=unique_asr['MedDischargeASR_1C'],
-        mode='markers',
-        marker=dict(color='red', size=10),  # Large red markers
-        name='Overall ASR'
-    )
-)
+# # Step 3: Overlay the markers
+# fig.add_trace(
+#     go.Scatter(
+#         x=unique_asr['samplename'],
+#         y=unique_asr['MedDischargeASR_1C'],
+#         mode='markers',
+#         marker=dict(color='red', size=10),  # Large red markers
+#         name='Overall ASR'
+#     )
+# )
 
-# Update layout
-fig.update_layout(
-    title='Comparison of 2L and Overall 22L Resistance per Sample',
-    xaxis_title='Sample Name',
-    yaxis_title='Resistance (Ω.cm²)',
-    showlegend=True,
-    plot_bgcolor='white',
-    yaxis=dict(showgrid=True, gridcolor='lightgrey'),
-    autosize=False,
-    width=1350,
-    height=600,
-    font=dict(size=16)
-)
+# # Update layout
+# fig.update_layout(
+#     title='Comparison of 2L and Overall 22L Resistance per Sample',
+#     xaxis_title='Sample Name',
+#     yaxis_title='Resistance (Ω.cm²)',
+#     showlegend=True,
+#     plot_bgcolor='white',
+#     yaxis=dict(showgrid=True, gridcolor='lightgrey'),
+#     autosize=False,
+#     width=1350,
+#     height=600,
+#     font=dict(size=16)
+# )
 
-# Show figure
-fig.show()
+# # Show figure
+# fig.show()
 
 
 # %%
