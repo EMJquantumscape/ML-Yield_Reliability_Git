@@ -28,7 +28,7 @@ import genealogy_v2 as genealogy
 import mass
 
 # import unit_cell_electrical_yield_and_metrics as uceym
-# import unit_cell_electrical_yield_and_metrics_with_rel as uceym_rel
+import unit_cell_electrical_yield_and_metrics_with_rel as uceym_rel
 
 # create the quantumscape data client
 qs_client = Client()
@@ -980,25 +980,25 @@ fig.show(renderer="browser")
 # =============================================================================
 
 
-# mass_tck = pd.read_csv("QSC020_mass_thickness.csv")
+#mass_tck = pd.read_csv("QSC020_mass_thickness.csv")
 
 # data = df_master[df_master.cell_tier_group.str.contains('Tier 1a|Tier 1b|Tier 2')]
 data=df_master.copy()
 data = data[(data["C/3 Count"] == 1) | (data['samplename'].str.contains('APD229')) ]
 
 
-data = data.merge(mass_tck, on="samplename", how="left")
+#data = data.merge(mass_tck, on="samplename", how="left")
 
 data = data[~data.samplename.str.contains('QSC020A[C,E,G]')]
 
 data["DischargeEnergy_Co3_first"] = data["DischargeEnergy_Co3_first"] / 1000
 
-data["GED"] = data["DischargeEnergy_Co3_first"] / data["Mass (kg)"]
+#data["GED"] = data["DischargeEnergy_Co3_first"] / data["Mass (kg)"]
 
 data=data.sort_values('process')
 
-fig = px.box(data, x='process', y="GED", title='C/3 Discharge Energy', points='all', hover_data=['samplename'])
-fig.update_yaxes(title='Discharge Energy (Wh/kg)', tickfont=dict(size=24),
+fig = px.box(data, x='process', y="DischargeEnergy_Co3_first", title='C/3 Discharge Energy', points='all', hover_data=['samplename'])
+fig.update_yaxes(title='Discharge Energy (Wh)', tickfont=dict(size=24),
                 # dtick=0.5,
                     titlefont=dict(size=26), mirror=True, ticks='outside', showline=True, linewidth=2, linecolor='grey')
 fig.update_xaxes(title='', tickfont=dict(size=22),
@@ -1028,18 +1028,6 @@ data.to_clipboard(index=False)
 # ====================== Plot 22L Screen Metrics ==============================
 # =============================================================================
 
-
-data=df_master.copy()
-
-data["Co3_Ratio"]=data["AMSDischargeCapactiy_Co3_first"]/data["AMSDischargeCapactiy_Co3_last"]
-
-data.loc[data["samplename"].str.contains('APD229BC-PS00-02'), "1C Count"] = 1
-
-data = data[data["1C Count"] == 1]
-data = data[data["cell_tier_group"].str.contains('Tier 1a|Tier 1b')]
-
-
-
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -1058,25 +1046,46 @@ for i, column in enumerate(columns_to_plot):
     row = i // 3 + 1
     col = i % 3 + 1
     fig.add_trace(
-        go.Box(x=data['Condition'],y=data[column], name=column, marker_color=colors[i % len(colors)], 
-               boxpoints='all',  # Show all points
-               jitter=0.3,  # Spread out points for better visibility
-               pointpos=-1.5,  # Position points symmetrically around the center
-               hoverinfo='y+text',  # Customize hover information
-               text=data['samplename'],  # This will set hover text to the 'samplename' column  # Show only the y-axis value when hovering
-               showlegend=False),
+        go.Box(
+            x=data['cell_tier_group'],
+            y=data[column],
+            name=column,
+            marker_color=colors[i % len(colors)], 
+            boxpoints='all',  # Show all points
+            jitter=0.3,  # Spread out points for better visibility
+            pointpos=-1.5,  # Position points symmetrically around the center
+            hoverinfo='y+text',  # Customize hover information
+            text=data['samplename'],  # Set hover text to the 'samplename' column
+            showlegend=False
+        ),
         row=row, col=col
     )
     # Update the y-axis title for each subplot
-    fig.update_yaxes(title_text=column, tickfont=dict(size=16), titlefont=dict(size=16),
-                     mirror=True, ticks='outside', showline=True, linewidth=2, linecolor='grey', title_standoff=5,
-                     row=row, col=col)
-    fig.update_xaxes(categoryorder='array', categoryarray=['Validation', 'Shippment<br>Candidates<br>Tier 1a', 'Shippment<br>Candidates<br>Tier 1b'])
+    fig.update_yaxes(
+        title_text=column,
+        tickfont=dict(size=16),
+        titlefont=dict(size=16),
+        mirror=True,
+        ticks='outside',
+        showline=True,
+        linewidth=2,
+        linecolor='grey',
+        title_standoff=5,
+        row=row, col=col
+    )
 
-# Update x axes titles
-fig.update_xaxes(title_text='', tickfont=dict(size=16),
-                 titlefont=dict(size=16), mirror=True, ticks='outside', showline=True, 
-                 linewidth=2, linecolor='grey')
+# Update x axes titles and ensure alphabetical ordering
+fig.update_xaxes(
+    title_text='', 
+    tickfont=dict(size=16),
+    titlefont=dict(size=16),
+    mirror=True,
+    ticks='outside',
+    showline=True, 
+    linewidth=2,
+    linecolor='grey',
+    categoryorder='category ascending'  # Sort categories alphabetically
+)
 
 # Adjust layout
 fig.update_layout(
@@ -1090,7 +1099,7 @@ fig.update_layout(
 )
 
 # Show figure
-fig.show()
+fig.show(renderer="browser")
 # %%
 # %%
 # ====================================================================================
@@ -1098,44 +1107,44 @@ fig.show()
 # ====================================================================================
 
 
-df_genealogy22L = genealogy.get_genealogy_6L(search, conn)
-df_genealogy22L.rename(columns={"2L_cell_id": "US_id"}, inplace=True)
-df_genealogy22L.dropna(subset=["US_id"], inplace=True)
+# df_genealogy22L = genealogy.get_genealogy_6L(search, conn)
+# df_genealogy22L.rename(columns={"2L_cell_id": "US_id"}, inplace=True)
+# df_genealogy22L.dropna(subset=["US_id"], inplace=True)
 
-# get genealogy data for the unit cell IDs
-df_genealogy2L = genealogy.get_genealogy_unitcell(df_genealogy22L["US_id"])
-df_genealogy22L = df_genealogy22L.merge(df_genealogy2L, on="US_id", how="left")
+# # get genealogy data for the unit cell IDs
+# df_genealogy2L = genealogy.get_genealogy_unitcell(df_genealogy22L["US_id"])
+# df_genealogy22L = df_genealogy22L.merge(df_genealogy2L, on="US_id", how="left")
 
-# %%
+# # %%
 
-df_master_summary = df_master[(df_master['C/3 Count']==1) & df_master['samplename'].str.contains('APD253') | df_master['samplename'].str.contains('APD253AB-PS02-01')]
+# df_master_summary = df_master[(df_master['C/3 Count']==1) & df_master['samplename'].str.contains('APD253') | df_master['samplename'].str.contains('APD253AB-PS02-01')]
 
-df_master_summary = df_master_summary[['samplename', 'AMSDischargeCapactiy_1C', 'AMSDischargeCapactiy_Co3_first', 'AMSDischargeCapactiy_Co3_last',
-                                 'DischargeEnergy_Co3_first', 'DischargeEnergy_Co3_last', 'AMSChargeCapacity_Co3_RPT', 'MedDischargeASR_1C', 'dVdt_delta_1C',
-                                   'cell_build_date', 'cell_build_WW', 'cell_tier_group']]
+# df_master_summary = df_master_summary[['samplename', 'AMSDischargeCapactiy_1C', 'AMSDischargeCapactiy_Co3_first', 'AMSDischargeCapactiy_Co3_last',
+#                                  'DischargeEnergy_Co3_first', 'DischargeEnergy_Co3_last', 'AMSChargeCapacity_Co3_RPT', 'MedDischargeASR_1C', 'dVdt_delta_1C',
+#                                    'cell_build_date', 'cell_build_WW', 'cell_tier_group']]
 
-df_master_summary.to_clipboard(index=False)
+# df_master_summary.to_clipboard(index=False)
 
-# df_genealogy22L.to_clipboard(index=False)
-# %%
-######## QUERY 2L ELECTRICAL METRICS AND JOIN ########
+# # df_genealogy22L.to_clipboard(index=False)
+# # %%
+# ######## QUERY 2L ELECTRICAL METRICS AND JOIN ########
 
-# get yield and electrical metrics for the unit cell IDs
-df_electrical_yield_metrics = uceym_rel.get_electrical_yield_and_metrics(
-    df_genealogy22L["US_id"]
-)
+# # get yield and electrical metrics for the unit cell IDs
+# df_electrical_yield_metrics = uceym_rel.get_electrical_yield_and_metrics(
+#     df_genealogy22L["US_id"]
+# )
 
-df_electrical_yield_metrics.rename(columns={"cell_build_date": "cell_build_date_2L",
-                                            "cell_build_WW": "cell_build_WW_2L",
-                                            "MedDischargeASR_1C": "MedDischargeASR_1C_2L",
-                                            "AMSDischargeCapactiy_1C": "AMSDischargeCapactiy_1C_2L",
-                                            "dVdt_1C": "dVdt_1C_2L",
-                                                    }, inplace=True)
-# df_testdata = df_genealogy22L.merge(df_electrical_yield_metrics, on="US_id")
+# df_electrical_yield_metrics.rename(columns={"cell_build_date": "cell_build_date_2L",
+#                                             "cell_build_WW": "cell_build_WW_2L",
+#                                             "MedDischargeASR_1C": "MedDischargeASR_1C_2L",
+#                                             "AMSDischargeCapactiy_1C": "AMSDischargeCapactiy_1C_2L",
+#                                             "dVdt_1C": "dVdt_1C_2L",
+#                                                     }, inplace=True)
+# # df_testdata = df_genealogy22L.merge(df_electrical_yield_metrics, on="US_id")
 
-df_summary_metrics = df_electrical_yield_metrics[['US_id', 'cell_build_date_2L', 'cell_build_WW_2L', 'AMSDischargeCapactiy_1C_2L', 'MedDischargeASR_1C_2L', 'dVdt_1C_2L']]
+# df_summary_metrics = df_electrical_yield_metrics[['US_id', 'cell_build_date_2L', 'cell_build_WW_2L', 'AMSDischargeCapactiy_1C_2L', 'MedDischargeASR_1C_2L', 'dVdt_1C_2L']]
 
-df_genealogy22L = df_genealogy22L.merge(df_summary_metrics, on="US_id", how="left")
+# df_genealogy22L = df_genealogy22L.merge(df_summary_metrics, on="US_id", how="left")
 
 
 # %%
