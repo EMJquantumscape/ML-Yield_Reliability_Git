@@ -36,16 +36,16 @@ qs_client = Client()
 # %%
 
 # This is the experiment code we want to look at. Default:
-search = "MLD018|MLD012|MLD016"
+search = "MLD012A[Q,R]|FCD00[0,1,2,3,5]|MLD018|MLD016"
 exclude = "None"
 
 
 # Yield criteria
 
 screen_softstart1C_recipes = [13753, 14399, 14419, 14440, 15490]
-softstart1C_charge_capacity_fraction = 0.999
-softstart1C_dvdt = -8.0
+softstart1C_charge_capacity_fraction = 1.05
 softstart1C_delta_dvdt = 1
+softstart1C_dvdt = -10
 softstart1C_CE = 0.98
 softstart1C_ceiling_hold_time = 3600
 
@@ -56,17 +56,17 @@ softstart1C_ceiling_hold_time = 3600
 # fastcharge_CE = 0.98
 # fastcharge_ceiling_hold_time = 3600
 
-screen_Co3 = [13708, 15618]  # , 13213,13197, 13708, 13345, ]
+screen_Co3 = [13708, 15618, 15955]  # , 13213,13197, 13708, 13345, ]
 Co3_charge_capacity = 202
-Co3_dvdt = -10
+Co3_dvdt = -15
 Co3_charge_capacity_fraction = 1.1
 Co3_charge_capacity_fraction_cycle = 1.1
 
 screen_Co3_RPT = [15422]  # , 13213,13197, 13708, 13345, ]
-Co3_charge_capacity = 202
-Co3_dvdt = -10
+Co3_charge_capacity = 210
+Co3_dvdt = -15
 
-
+reliability_recipes = [15983]
 # Query data
 conn = qs_client.get_mysql_engine()
 
@@ -79,7 +79,7 @@ recipes = "|".join(
             + screen_softstart1C_recipes
             # + screen_fastcharge
            
-            # + reliability_recipes
+            + reliability_recipes
             # + alct_reliability_recipes
             # + reliability_track_cycle_charge
         )
@@ -502,7 +502,7 @@ df_master[
 
 
 # Group by
-grouping = "date"
+grouping = "Condition"
 
 # grouping = "cell_tier_group"
 
@@ -510,11 +510,17 @@ data = df_master.copy()
 
 # data = data[data.cell_tier_group.str.contains('Tier 1a|Tier 1b')]
 
-data = data[data.samplename.str.contains('MLD018|MLD016')]
+data = data[data.samplename.str.contains('MLD012AR|FCD|MLD016|MLD018')]
 
 data["cell_build_datetime"] = pd.to_datetime(data["cell_build_date"])
 data['date'] = data["cell_build_datetime"].dt.strftime('%m/%d/%Y')
 
+
+data.loc[data.samplename.str.contains('MLD016|MLD018'), 'Condition'] = 'Baseline (Dec)'
+data.loc[data.samplename.str.contains('FCD000|FCD001'), 'Condition'] = 'Cathy 22L'
+data.loc[data.samplename.str.contains('FCD002|FCD005|MLD012'), 'Condition'] = 'Baseline 22L (Feb)'
+
+data.loc[data.samplename.str.contains('MLD012AQ-PS01-01|MLD018AC-PS00-02|FCD002AB-PS00-01'), ['C/3 Count', '1C Count']] = [1,1]
 
 df_cyield = (
     data[
@@ -1101,6 +1107,250 @@ fig.update_layout(
 # Show figure
 fig.show(renderer="browser")
 # %%
+
+# %%
+# ==========================================================================================
+# ======================             CAPACITY RETENTION              =======================
+# ==========================================================================================
+
+
+alct_reliability_recipes = [15983]
+
+
+
+# samples_to_include="APD209A[H,Q,R]|APD194AB-US00-05|APD194AB-US01-0[1,8,9]|APD194AB-US01-1[1,2]|APD194AC-US00-0[4,5,6,8,9]|APD194AC-US00-1[0,3]|APD194AC-US01-0[6,8]|APD194AC-US01-1[0,1,2,3,4]|APD194AD-US00-0[3,7,9]|APD194AD-US01-0[1,3,6,8]|APD194AD-US01-11"
+# samples_to_include="APD219A[F-Z]"   
+
+samples_to_include="MLD012|FCD"
+
+
+
+samples_to_exclude='None'
+
+#Figure Dimensions
+height=600 
+width=1050
+
+
+
+ColorBy='Condition' #Group and Color By
+Column="NormalizedDischargeCapacity" #Column to plot
+
+
+
+df_cyc.loc[df_cyc.samplename.str.contains("MLD012|FCD002"), "Condition"] = "Baseline 22L"
+df_cyc.loc[df_cyc.samplename.str.contains("FCD00[0,1]"), "Condition"] = "Cathy 22L"
+df_cyc.loc[df_cyc.samplename.str.contains("APD218"), "Condition"] = "1.5mm Stiff Foam FX"
+df_cyc.loc[df_cyc.samplename.str.contains("APD218AA-US00"), "Condition"] = "1.5mm Poron Foam FX"
+
+fig = go.Figure()
+
+df_rel2=df_cyc[df_cyc.samplename.str.contains(samples_to_include)]
+df_rel2=df_rel2[~df_rel2.samplename.str.contains(samples_to_exclude)]
+
+
+
+
+# Filter to desired recipes
+
+# df_rel2 = df_rel2[df_rel2.idtest_recipe.isin(reliability_recipes)]
+df_rel2 = df_rel2[df_rel2.idtest_recipe.isin(alct_reliability_recipes)]
+# df_rel2 = df_rel2[df_rel2.idtest_recipe.isin(lowtemp_reliability_recipes)]
+
+
+# Only include cells that have not shorted
+# df_rel2=df_rel2[(df_rel2.Failed_any==False)]
+
+# Reset Cumulative Cycle to start at the beginning of the chosen recipes
+df_rel2["CumulativeCycle"] = 1
+df_rel2["CumulativeCycle"] = df_rel2.groupby("samplename").CumulativeCycle.cumsum()
+
+
+
+df_rel2.loc[df_rel2.samplename.str.contains("APD219"), "Condition"] = "Short-Join<br>2.5C Screen"
+
+df_rel2.loc[df_rel2.samplename.str.contains("APD219AF"), "Condition"] = "Short-Join<br>4C Screen<br>No Refixture"
+df_rel2.loc[df_rel2.samplename.str.contains("APD219A[M,N]"), "Condition"] = "LJv3<br>4C Screen"
+
+
+
+
+
+
+# create a column with normalized AMSDischargeCapacity
+
+df_rel2["NormalizedDischargeCapacity"] = df_rel2.groupby("samplename")[
+    "AMSDischargeCapacity"
+].apply(lambda x: x / x.iloc[0] )  # normalize the discharge capacity
+
+df_rel2["DischargeCapacity_3"] = df_rel2.groupby("samplename")[
+    "AMSDischargeCapacity"
+].transform(lambda x: x.iloc[2] if len(x) > 2 else np.nan)
+
+df_rel2["NormalizedDischargeCapacity"] = df_rel2["AMSDischargeCapacity"] / df_rel2["DischargeCapacity_3"]
+
+# df_rel2=df_rel2[df_rel2.NormalizedDischargeCapacity>0.95]
+# create a column with normalized Ceiling Hold Time
+
+
+df_rel2["CeilingHoldTime_3"] = df_rel2.groupby("samplename")[
+    "CeilingHoldTime"
+].transform(lambda x: x.iloc[2] if len(x) > 2 else np.nan)
+
+df_rel2["NormalizedCelingHoldTime"] = df_rel2["CeilingHoldTime"] / df_rel2["CeilingHoldTime_3"]
+
+
+
+# create a column in def_rel2 that reports the "NormalizedDischargeCapacity" of a sample at cycle 20 if cycle 20 exists
+
+df_rel2["NormalizedDischargeCapacity_20"] = df_rel2.groupby("samplename")[
+    "NormalizedDischargeCapacity"
+].transform(lambda x: x.iloc[19] if len(x) > 19 else np.nan)
+
+
+df_rel2["NormalizedDischargeCapacity_10"] = df_rel2.groupby("samplename")[
+    "NormalizedDischargeCapacity"
+].transform(lambda x: x.iloc[9] if len(x) > 9 else np.nan)
+
+
+
+df_fade = df_rel2[['samplename', 'NormalizedDischargeCapacity_10', 'NormalizedDischargeCapacity_20']].drop_duplicates()
+
+
+
+
+df_rel2["CelingHoldTime_Ratio"] = df_rel2.groupby("samplename")[
+    "NormalizedCelingHoldTime"
+].transform(lambda x: (x.iloc[19]-x.iloc[2])/x.iloc[2] if len(x) > 19 else np.nan)
+
+
+
+colors=px.colors.qualitative.Plotly*10
+
+
+colors=[
+    
+        'rgb(239, 85, 59)',     # Red-orange
+    'rgb(0, 204, 150)',     # Green
+    # 'rgb(23, 190, 207)',
+   
+    # 'rgb(44, 160, 44)', 
+     'rgb(31, 119, 180)',
+    'rgb(255, 127, 14)',
+            
+    
+            
+                       'rgb(214, 39, 40)',
+                       'rgb(148, 103, 189)', 
+                       'rgb(140, 86, 75)',
+                       'rgb(227, 119, 194)', 'rgb(127, 127, 127)',
+                       'rgb(188, 189, 34)', 'rgb(31, 119, 180)',  ]*3
+
+
+
+# df_rel2=df_rel2[df_rel2.Failed_reliability_any==False]
+
+# filter out normalized discharge capacity values that are less than 0.9
+
+df_rel2=df_rel2[df_rel2.NormalizedDischargeCapacity>0.9]
+
+i=0
+for Batch, Batch_data in df_rel2.groupby(ColorBy):
+    
+    c=colors[i]
+    for cell, cell_data in Batch_data.groupby("samplename"):
+        fig.add_trace(
+            go.Scatter(
+                x=cell_data["CumulativeCycle"],
+                y=cell_data[Column],
+                mode="lines+markers",
+                name=cell,
+                # update size of markers
+                marker=dict(size=8, color=c),
+                line=dict(color=c, width=2),
+                #add colorBy column and samplename to the hoverlabel
+                hovertemplate="<b>%{text}</b><br><br>" + Column + ": %{y:.2f}<br>Cycle: %{x}<br>" + ColorBy + ": " + Batch,
+                text=cell_data["samplename"],
+
+                
+            )
+        
+        )
+    
+    i=i+1
+
+
+fig.update_layout(
+    title="Discharge Capacity of Yielded Cells",
+    xaxis_title="Cycle Index",
+    yaxis_title="Normalized Discharge Capacity",
+    font=dict(size=16),
+    height=height, width=width,
+
+    # adjust y-axis range from 0 to 1, make y-axis line black and bold, and add mirror effect
+    yaxis=dict(range=[0.5, 1.02], showline=True, linewidth=2, linecolor="black", mirror=True), 
+    xaxis=dict(range=[0, 100], showline=True, linewidth=2, linecolor="black", mirror=True), 
+    
+    # adjust tick label font size
+    xaxis_tickfont_size=22,
+    yaxis_tickfont_size=22,
+
+    # add dashed grey horizonal line at y=0.8
+    shapes=[
+        dict(
+            type="line",
+            yref="y",
+            y0=0.8,
+            y1=0.8,
+            xref="paper",
+            x0=0,
+            x1=1,
+            line=dict(color="LightGrey", width=2, dash="dash"),
+        )
+    ],
+    
+    # add text annotation at y=0.8 with "80% Capacity" text
+    # add text annotation at y=0.8 with number of cells text
+    annotations=[
+        dict(
+            xref="paper",
+            yref="y",
+            x=0.5,
+            y=0.78,
+            text="80% Capacity Retention",
+            showarrow=False,
+            font=dict(size=16),
+        ),
+        # dict(
+        #     xref="paper",
+        #     yref="y",
+        #     x=0.98,
+        #     y=0.82,
+        #     text=f"N = {len(df_rel2.samplename.unique())} cells",
+        #     showarrow=False,
+        #     font=dict(size=22),
+        # ),
+
+        # dict(
+        #     xref="paper",
+        #     yref="y",
+        #     x=0.3,
+        #     y=0.79,
+        #     text=f"N = {len(df_rel2[df_rel2.Cathode=='TA72'].samplename.unique())} cells",
+        #     showarrow=False,
+        #     font=dict(size=22, color="red"),
+        # ),
+
+   
+
+    
+    ],
+    
+)
+fig.show(renderer="browser")
+
+
+
 # %%
 # ====================================================================================
 # ======================        Genealogy        =====================================
